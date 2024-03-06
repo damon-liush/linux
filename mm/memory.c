@@ -4251,6 +4251,7 @@ static vm_fault_t do_anonymous_page(struct vm_fault *vmf)
 	int i;
 
 	/* File mapping without ->vm_ops ? */
+	/*如果是共享则意味着之前以及通过mmap方式在其他进程申请过物理内存，vma应该存在对应物理内存映射，不应该再发生page fault*/
 	if (vma->vm_flags & VM_SHARED)
 		return VM_FAULT_SIGBUS;
 
@@ -4258,9 +4259,10 @@ static vm_fault_t do_anonymous_page(struct vm_fault *vmf)
 	 * Use pte_alloc() instead of pte_alloc_map(), so that OOM can
 	 * be distinguished from a transient failure of pte_offset_map().
 	 */
+	/* 分配pte，并建立pmd与pte的关系 */
 	if (pte_alloc(vma->vm_mm, vmf->pmd))
 		return VM_FAULT_OOM;
-
+	/* 如果是读操作触发的缺页，并且没有禁止zero page，则映射到零页面 */
 	/* Use the zero-page for reads */
 	if (!(vmf->flags & FAULT_FLAG_WRITE) &&
 			!mm_forbids_zeropage(vma->vm_mm)) {
