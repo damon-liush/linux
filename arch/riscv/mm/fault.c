@@ -261,12 +261,13 @@ void handle_page_fault(struct pt_regs *regs)
 	 * If we're in an interrupt, have no user context, or are running
 	 * in an atomic region, then we must not take the fault.
 	 */
+	/* 如果在中断中发生trap或者不处于用户态，trap失败报错。内核态mm为空 */
 	if (unlikely(faulthandler_disabled() || !mm)) {
 		tsk->thread.bad_cause = cause;
 		no_context(regs, addr);
 		return;
 	}
-
+	/* 确认进入trap前，是否是用户模式，通过sstatus.spp寄存器来判定 */
 	if (user_mode(regs))
 		flags |= FAULT_FLAG_USER;
 
