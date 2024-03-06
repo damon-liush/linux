@@ -5181,7 +5181,11 @@ static vm_fault_t handle_pte_fault(struct vm_fault *vmf)
 		/* 写内存的异常，页表项又无 W 权限，说明是写保护的情形，调用 do_wp_page() 处理 */
 		if (!pte_write(entry))
 			return do_wp_page(vmf);
-		/*写内存的异常，页表项又有 W 权限，说明是软件管理 W 位的处理器架构，这种 CPU 会抛出异常，让软件处理*/
+		/* 
+  		 * 写内存的异常，但页表项有写权限，这部分逻辑主要是处理处理器硬件不负责管理 A 位和 W 位的情况。某些架构的处理器硬件不管理 A 位和 W 位，
+  		 * 第一次读或写的时候会进入缺页异常，交给软件处理，软件将 A 位和 W 位置位。RISC-V 架构的文档中表示管理或者不管理都可以。也就是说，如果
+     		 * 是管理 A 位和 W 位的 CPU ，则不会出现写内存的异常但页表项有写权限的情形
+		 */
 		else if (likely(vmf->flags & FAULT_FLAG_WRITE))
 			entry = pte_mkdirty(entry);
 	}
