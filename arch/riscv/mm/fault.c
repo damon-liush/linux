@@ -291,6 +291,7 @@ void handle_page_fault(struct pt_regs *regs)
          * 下面一段代码表示首先使用基于VMA lock-based page fault处理，如果失败则退回到现有的基于mmap_lock的处理方式。
          * 此处修改的作者还提到在Lichee Pi 4A上运行ebizzy基准测试表明，启用PER_VMA_LOCK可以将ebizzy基准测试性能提升约32.68%。
 	 * 理论上，CPU数量越多，提升越大，但作者没有超过4个CPU的硬件平台来验证。
+  	 * 关于per-vma lock：https://lwn.net/Articles/906852/
          */
 	vma = lock_vma_under_rcu(mm, addr);
 	if (!vma)
