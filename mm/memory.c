@@ -4286,11 +4286,13 @@ static vm_fault_t do_anonymous_page(struct vm_fault *vmf)
 		}
 		goto setpte;
 	}
-
+	/* 以下为分配私有页面的流程 */
 	/* Allocate our own private page. */
+	/* 分配 anon_vma，并和 vma 建立关联，这在反射机制时有用 */
 	if (unlikely(anon_vma_prepare(vma)))
 		goto oom;
 	/* Returns NULL on OOM or ERR_PTR(-EAGAIN) if we must retry the fault */
+	/* 分配物理页 */
 	folio = alloc_anon_folio(vmf);
 	if (IS_ERR(folio))
 		return 0;
@@ -4309,16 +4311,18 @@ static vm_fault_t do_anonymous_page(struct vm_fault *vmf)
 	 * preceding stores to the page contents become visible before
 	 * the set_pte_at() write.
 	 */
+	/* 新申请的页面设置 update 标志 */
 	__folio_mark_uptodate(folio);
 
 	entry = mk_pte(&folio->page, vma->vm_page_prot);
 	entry = pte_sw_mkyoung(entry);
 	if (vma->vm_flags & VM_WRITE)
 		entry = pte_mkwrite(pte_mkdirty(entry), vma);
-
+	/* 取得 pte 的指针，加锁，保证不会同时有 CPU 线程修改该 pte */
 	vmf->pte = pte_offset_map_lock(vma->vm_mm, vmf->pmd, addr, &vmf->ptl);
 	if (!vmf->pte)
 		goto release;
+	 /* 再判断一下，有没有之前被别的线程改过，改过就不处理了，直接刷新本 CPU 线程的 MMU 相关缓存 */
 	if (nr_pages == 1 && vmf_pte_changed(vmf)) {
 		update_mmu_tlb(vma, addr, vmf->pte);
 		goto release;
@@ -4341,11 +4345,14 @@ static vm_fault_t do_anonymous_page(struct vm_fault *vmf)
 
 	folio_ref_add(folio, nr_pages - 1);
 	add_mm_counter(vma->vm_mm, MM_ANONPAGES, nr_pages);
+	 /* 把页加入匿名页反射机制的结构中 */
 	folio_add_new_anon_rmap(folio, vma, addr);
+	/* 把页加入 LRU 链表中，回收相关机制会使用 */
 	folio_add_lru_vma(folio, vma);
 setpte:
 	if (uffd_wp)
 		entry = pte_mkuffd_wp(entry);
+	/* 将刚刚暂存的 entry 的值写到 pte 中，刷新本 CPU 线程的 MMU 相关缓存 */
 	set_ptes(vma->vm_mm, addr, vmf->pte, entry, nr_pages);
 
 	/* No need to invalidate - it was non-present before */
