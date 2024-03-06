@@ -270,7 +270,7 @@ void handle_page_fault(struct pt_regs *regs)
 	/* 确认进入trap前，是否是用户模式，通过sstatus.spp寄存器来判定 */
 	if (user_mode(regs))
 		flags |= FAULT_FLAG_USER;
-
+	/*  满足缺页发生在内核态，地址在进程地址范围内，且缺页不是内核访问用户态页表里存在的地址（status 中 SUM 位未置位），那就是一个bug */
 	if (!user_mode(regs) && addr < TASK_SIZE && unlikely(!(regs->status & SR_SUM))) {
 		if (fixup_exception(regs))
 			return;
