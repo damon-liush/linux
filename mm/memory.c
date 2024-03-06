@@ -5176,13 +5176,20 @@ static vm_fault_t handle_pte_fault(struct vm_fault *vmf)
 		update_mmu_tlb(vmf->vma, vmf->address, vmf->pte);
 		goto unlock;
 	}
+	 /* 页表已经建立，且也贮存在物理内存中，因为写操作触发了缺页中断 */
 	if (vmf->flags & (FAULT_FLAG_WRITE|FAULT_FLAG_UNSHARE)) {
+		/* 写内存的异常，页表项又无 W 权限，说明是写保护的情形，调用 do_wp_page() 处理 */
 		if (!pte_write(entry))
 			return do_wp_page(vmf);
+		/*写内存的异常，页表项又有 W 权限，说明是软件管理 W 位的处理器架构，这种 CPU 会抛出异常，让软件处理*/
 		else if (likely(vmf->flags & FAULT_FLAG_WRITE))
 			entry = pte_mkdirty(entry);
 	}
 	entry = pte_mkyoung(entry);
+	/* 
+ 	 * 将上面修改好的 entry 写入页表项，并刷新 MMU cache 相关内容，工作做到位，这样同样的位置就不会再出现缺页异常了。
+   	 * ptep_set_access_flags() 函数规定专门用于更新页表项的 Access，Dirty 或者 Write 权限位。  
+     	 */
 	if (ptep_set_access_flags(vmf->vma, vmf->address, vmf->pte, entry,
 				vmf->flags & FAULT_FLAG_WRITE)) {
 		update_mmu_cache_range(vmf, vmf->vma, vmf->address,
