@@ -5160,10 +5160,10 @@ static vm_fault_t handle_pte_fault(struct vm_fault *vmf)
 			vmf->pte = NULL;
 		}
 	}
-
+	/* 假如 vmf->pte 为空，即尚未分配为缺失的页分配页表(Page Table) */
 	if (!vmf->pte)
 		return do_pte_missing(vmf);
-
+	/* 页表已经建立，但不存在于物理内存之中 */
 	if (!pte_present(vmf->orig_pte))
 		return do_swap_page(vmf);
 
