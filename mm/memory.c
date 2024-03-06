@@ -5154,7 +5154,7 @@ static vm_fault_t handle_pte_fault(struct vm_fault *vmf)
 			return 0;
 		vmf->orig_pte = ptep_get_lockless(vmf->pte);
 		vmf->flags |= FAULT_FLAG_ORIG_PTE_VALID;
-
+		/* 假如页中间目录存在，但页表不存在, vmf->pte置为NULL */
 		if (pte_none(vmf->orig_pte)) {
 			pte_unmap(vmf->pte);
 			vmf->pte = NULL;
