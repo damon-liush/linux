@@ -4743,7 +4743,12 @@ static inline bool should_fault_around(struct vm_fault *vmf)
 	/* A single page implies no faulting 'around' at all. */
 	return fault_around_pages > 1;
 }
-
+/*
+ * 对于文件读缺页异常：
+ * 1. 首先尝试对异常地址附近的16个页面进行映射，减少后续缺页中断次数
+ * 2. 使用vm_ops->fault()函数申请页面
+ * 3. 将new page通过do_set_pte加入到进程内存中
+ */
 static vm_fault_t do_read_fault(struct vm_fault *vmf)
 {
 	vm_fault_t ret = 0;
@@ -4754,7 +4759,13 @@ static vm_fault_t do_read_fault(struct vm_fault *vmf)
 	 * if page by the offset is not ready to be mapped (cold cache or
 	 * something).
 	 */
+	*
+	 * fault_around_bytes=65536B=16 pages
+	 * 如果定义了map_pages()方法; 可以围绕在缺页异常地址周围提前映射尽可能多的页面
+	 * 提前建立进程地址空间和page cache的映射关系有利于减少发生缺页中断的次数，从而提高效率
+	 */
 	if (should_fault_around(vmf)) {
+		 /* 尝试围绕缺页异常addr映射更多的页面，减少缺页异常次数; 使用vm_ops->map_pages()映射页面线性地址 */
 		ret = do_fault_around(vmf);
 		if (ret)
 			return ret;
@@ -4763,11 +4774,13 @@ static vm_fault_t do_read_fault(struct vm_fault *vmf)
 	ret = vmf_can_call_fault(vmf);
 	if (ret)
 		return ret;
-
+	/* 通过vma->vm_ops->fault()创建一个page cache，完成页面申请
+	 * fault函数有不同,可以自己实现；special_mapping_fault
+	 */
 	ret = __do_fault(vmf);
 	if (unlikely(ret & (VM_FAULT_ERROR | VM_FAULT_NOPAGE | VM_FAULT_RETRY)))
 		return ret;
-
+	/*利用刚才分配的页面新生成一个PTE entry设置到硬件页表中*/
 	ret |= finish_fault(vmf);
 	folio = page_folio(vmf->page);
 	folio_unlock(folio);
