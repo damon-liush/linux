@@ -4894,10 +4894,13 @@ static vm_fault_t do_fault(struct vm_fault *vmf)
 			pte_unmap_unlock(vmf->pte, vmf->ptl);
 		}
 	} else if (!(vmf->flags & FAULT_FLAG_WRITE))
+		/* 如果需要获取的页面不具备可写属性，就执行do_read_fault，一般这次缺页是由于读内存导致的缺页异常 */
 		ret = do_read_fault(vmf);
 	else if (!(vma->vm_flags & VM_SHARED))
+		/* 如果需要获取的页面具有可写属性，但时VMA的属性中没有设置VM_SHARED，即这个VMA是属于私有映射，则执行do_cow_fault */
 		ret = do_cow_fault(vmf);
 	else
+		/* 其他情况就属于可写的共享页面，即属于共享映射并且这次异常是可写内存导致的缺页异常，则执行do_shared_fault */
 		ret = do_shared_fault(vmf);
 
 	/* preallocated pagetable is unused: free it */
