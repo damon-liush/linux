@@ -5340,6 +5340,7 @@ asmlinkage __visible void schedule_tail(struct task_struct *prev)
 /*
  * context_switch - switch to the new MM and the new thread's register state.
  */
+ /* context_switch()函数主要负责两方面的切换,一是切换到新线程的mm_struct,二是切换到新线程的寄存器状态.*/
 static __always_inline struct rq *
 context_switch(struct rq *rq, struct task_struct *prev,
 	       struct task_struct *next, struct rq_flags *rf)
